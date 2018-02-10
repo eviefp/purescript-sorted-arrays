@@ -1,5 +1,5 @@
 {
-  "name": "sorted-list",
+  "name": "sorted-array",
   "ignore": [
     "**/.*",
     "node_modules",
