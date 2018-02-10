@@ -16,9 +16,11 @@ module Data.SortedArray
   , singleton
   , range
   , (..)
+  , replicate
   , null
   , length
   , cons
+  , (:)
   , snoc
   , insert
   , head
@@ -33,63 +35,65 @@ module Data.SortedArray
   , elemLastIndex
   , findIndex
   , findLastIndex
+  , delete
   , deleteAt
   , filter
   , partition
   , map'
   , mapWithIndex'
   , sort
-  , sortBy
-  , sortWith
   , slice
   , take
+  , takeEnd
   , takeWhile
   , drop
+  , dropEnd
   , dropWhile
   , span
   , nub
   , nubBy
   ) where
 
+import Control.Alt ((<|>))
 import Data.Array as Array
+import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromJust, maybe)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Eq, class Ord, Ordering(EQ, GT, LT), compare, flip, id, map, negate, otherwise, ($), (+), (-), (/), (<$>), (<<<), (==), (>=))
+import Prelude (class Eq, class Ord, class Show, Ordering(EQ, GT, LT), compare, flip, id, map, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 
 -- | You can create `SortedArray`s by using the `sort` functions. You can get the underlying
 -- | `Array` using `unSortedArray`.
--- |
--- | TODO: Add info about foldable. Can we derive any other useful instance?
-newtype SortedArray a = SortedArray 
-  { array ∷ (Array a)
-  , cmp   ∷ (a → a → Ordering)
-  }
+newtype SortedArray a = SortedArray (Array a)
+
+data Direction = Forward | Backward
 
 -- | Unwraps the `Array`.
 unSortedArray ∷ ∀ a. SortedArray a → Array a
-unSortedArray (SortedArray a) = a.array
+unSortedArray (SortedArray a) = a
 
-getCmp ∷ ∀ a. SortedArray a → a → a → Ordering
-getCmp (SortedArray a) = a.cmp
+mkSortedArray ∷ ∀ a. Array a → SortedArray a
+mkSortedArray = SortedArray 
 
-mkSortedArray ∷ ∀ a. (a → a → Ordering) → Array a → SortedArray a
-mkSortedArray c a = SortedArray { array: a, cmp: c }
+derive newtype instance eqSortedArray ∷ Eq a ⇒ Eq (SortedArray a)
+derive newtype instance foldableSortedArray ∷ Foldable SortedArray
 
--- derive newtype instance foldableSortedArray ∷ Foldable SortedArray
+instance showSortedArray ∷ Show a ⇒ Show (SortedArray a) where
+  show = show <<< unSortedArray
 
 -- | Creates a singleton array which is by definition sorted.
 singleton ∷ ∀ a. Ord a ⇒ a → SortedArray a
-singleton = mkSortedArray compare <<< Array.singleton
-
-singleton' ∷ ∀ a. (a → a → Ordering) → a → SortedArray a
-singleton' cmp a = mkSortedArray cmp [a]
+singleton = mkSortedArray <<< Array.singleton
 
 -- | Creates an array containing a range of integers, including the bounds.
 range ∷ Int → Int → SortedArray Int
-range from = mkSortedArray compare <<< Array.range from
+range from = mkSortedArray <<< Array.range from
 
 -- | Infix synonym for `range`.
 infix 8 range as ..
+
+-- |
+replicate ∷ ∀ a. Ord a ⇒ Int → a → SortedArray a
+replicate n = mkSortedArray <<< Array.replicate n
 
 -- | Tests whether the array is empty.
 null ∷ ∀ a. SortedArray a → Boolean
@@ -100,7 +104,7 @@ length ∷ ∀ a. SortedArray a → Int
 length = Array.length <<< unSortedArray
 
 -- | Convenience function for adding an item at the beginning of the sorted array. The result is
--- | a plain `Array`.
+-- | a plain `Array`. Use `insert` if you need the result to also be a `SortedArray`.
 cons ∷ ∀ a. a → SortedArray a → Array a
 cons a = Array.cons a <<< unSortedArray
 
@@ -114,10 +118,31 @@ snoc = flip cons
 -- | Insert an item in the sorted array. The array remains sorted. The item goes in the first
 -- | position it can (so if they are duplicates, it will be the first item in that particular
 -- | EQ group).
-insert ∷ ∀ a. a → SortedArray a → SortedArray a
-insert a xs@(SortedArray {array, cmp}) =
-  let i = maybe 0 (_ + 1) (findLastIndex a xs)
-  in unsafePartial $ mkSortedArray cmp <<< fromJust <<< Array.insertAt i a $ array
+insert ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
+insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (maybe 0 id <<< go 0 $ length sa) a <<< unSortedArray $ sa
+  where
+  f ∷ a → Ordering 
+  f = compare a
+
+  go ∷ Int → Int → Maybe Int
+  go low high
+    | low == high = Just low
+    | otherwise =
+        let mid = ((high + low) / 2) in
+        case f <$> index sa mid of
+          Nothing → Nothing
+          Just eq → case eq of
+            EQ → goDir (_ - 1) mid
+            LT → go low mid
+            GT → go (mid + 1) high
+  
+  goDir ∷ (Int → Int) → Int → Maybe Int
+  goDir dir idx =
+    case f <$> index sa (dir idx) of
+      Nothing → Just idx
+      Just eq → case eq of
+        EQ → goDir dir (dir idx)
+        _  → Just idx
 
 -- | Gets the first item of the array, or `Nothing` if the array is empty.
 head ∷ ∀ a. SortedArray a → Maybe a
@@ -129,19 +154,19 @@ last = Array.last <<< unSortedArray
 
 -- | Gets the rest of the array (except the first item), or `Nothing` if the array is empty.
 tail ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
-tail (SortedArray {array, cmp}) = map (mkSortedArray cmp) <<< Array.tail $ array
+tail = map mkSortedArray <<< Array.tail <<< unSortedArray
 
 -- | Gets all the items in the array except the last item, or `Nothing` if the array is empty.
 init ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
-init (SortedArray {array, cmp}) = map (mkSortedArray cmp) <<< Array.init $ array
+init = map mkSortedArray <<< Array.init <<< unSortedArray
 
 -- | Deconstructs the array in a `head` and `tail`, or returns `Nothing` if the array is empty.
 uncons ∷ ∀ a. SortedArray a → Maybe { head ∷ a, tail ∷ SortedArray a }
-uncons (SortedArray {array, cmp}) = map (\m -> { head: m.head, tail: mkSortedArray cmp m.tail }) <<< Array.uncons $ array
+uncons = map (\m -> { head: m.head, tail: mkSortedArray m.tail }) <<< Array.uncons <<< unSortedArray
 
 -- | Flipped version of `uncons`.
 unsnoc ∷ ∀ a. SortedArray a → Maybe { init ∷ SortedArray a, last ∷ a }
-unsnoc (SortedArray {array, cmp}) = map (\m -> { init: mkSortedArray cmp m.init, last: m.last }) <<< Array.unsnoc $ array
+unsnoc = map (\m -> { init: mkSortedArray m.init, last: m.last }) <<< Array.unsnoc <<< unSortedArray
 
 -- | Gets the item at the specified index, or `Nothing` if it is out of bounds.
 index ∷ ∀ a. SortedArray a → Int → Maybe a
@@ -151,45 +176,47 @@ index = Array.index <<< unSortedArray
 infix 8 index as !!
 
 -- | Finds the first index of the first occurrence of the provided item. Uses binary search. 
-elemIndex ∷ ∀ a. a → SortedArray a → Maybe Int
-elemIndex a = findIndex' false a
+elemIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
+elemIndex a = findIndex' Forward a
 
 -- | Finds the last index of the first occurrence of the provided item. Uses binary search. 
-elemLastIndex ∷ ∀ a. a → SortedArray a → Maybe Int
-elemLastIndex a = findIndex' true a
+elemLastIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
+elemLastIndex a = findIndex' Backward a
 
 -- | Finds the first index for which the provided compare function tests equal (`EQ`).
 -- | Uses binary search.
-findIndex ∷ ∀ a. a → SortedArray a → Maybe Int
-findIndex a = findIndex' false a
+findIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
+findIndex a = findIndex' Forward a
 
 -- | Finds the last index for which the provided compare function tests equal (`EQ`).
 -- | Uses binary search.
-findLastIndex ∷ ∀ a. a → SortedArray a → Maybe Int 
-findLastIndex a = findIndex' true a
+findLastIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int 
+findLastIndex a = findIndex' Backward a
 
-findIndex' ∷ ∀ a. Boolean → a → SortedArray a → Maybe Int
-findIndex' findLast a arr@(SortedArray {array, cmp}) = go 0 <<< length $ arr
+findIndex' ∷ ∀ a. Ord a ⇒ Direction → a → SortedArray a → Maybe Int
+findIndex' dir a sa = go 0 <<< length $ sa
   where
 
   f ∷ a → Ordering 
-  f = cmp a
+  f = compare a
 
   go ∷ Int → Int → Maybe Int
   go low high
     | low == high = Nothing
     | otherwise =
         let mid = ((high + low) / 2) in
-        case f <$> index arr mid of
+        case f <$> index sa mid of
           Nothing → Nothing
           Just eq → case eq of
-            EQ → if findLast then goDir (_ + 1) mid else goDir (_ - 1) mid
+            EQ → case dir of
+              Forward  → goDir (_ - 1) mid
+              Backward → goDir (_ + 1) mid
             LT → go low mid
             GT → go (mid + 1) high
   
   goDir ∷ (Int → Int) → Int → Maybe Int
   goDir dir idx =
-    case f <$> index arr (dir idx) of
+    case f <$> index sa (dir idx) of
       Nothing → Just idx
       Just eq → case eq of
         EQ → goDir dir (dir idx)
@@ -197,27 +224,29 @@ findIndex' findLast a arr@(SortedArray {array, cmp}) = go 0 <<< length $ arr
 
 -- | Deletes item at index.
 deleteAt ∷ ∀ a. Int → SortedArray a → Maybe (SortedArray a)
-deleteAt idx (SortedArray {array, cmp}) = map (mkSortedArray cmp) <<< Array.deleteAt idx $ array
+deleteAt idx = map mkSortedArray <<< Array.deleteAt idx <<< unSortedArray
+
+delete ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
+delete a xs = unsafePartial $ fromJust $ (findIndex a xs >>= (flip deleteAt) xs) <|> Just xs
 
 -- | Returns all items for which the provided compare function tests equal ('EQ').
 -- | Uses binary search.
-filter ∷ ∀ a. a → SortedArray a → Array a
-filter a sa@(SortedArray {array, cmp}) = go ((_ == EQ) <<< cmp a) (maybe (-1) id <<< findIndex a $ sa)
+filter ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
+filter a sa = mkSortedArray <<< go (_ == a) <<< findIndex a $ sa
     where
-    go f' idx
-      | idx == (-1) = []
-      | idx >= length sa = []
-      | otherwise =
-          case index sa idx of
-            Nothing → []
-            Just val → case f' val of
-              true  → Array.cons val (go f' $ idx + 1)
-              false → []
+    go f' = case _ of 
+      Nothing → []
+      Just i →
+        case index sa i of
+          Nothing → []
+          Just val → case f' val of
+            true  → Array.cons val (go f' <<< Just $ i + 1)
+            false → []
 
 -- | Splits the array in two arrays depending on whether they test true or false for the provided
 -- | predicate. Ordering is retained, so both arrays are still sorted.
 partition ∷ ∀ a. (a → Boolean) → SortedArray a → { yes ∷ SortedArray a, no ∷ SortedArray a }
-partition f (SortedArray {array, cmp}) = (\res → { yes: mkSortedArray cmp res.yes, no: mkSortedArray cmp res.no }) <<< Array.partition f $ array
+partition f = (\res → { yes: mkSortedArray res.yes, no: mkSortedArray res.no }) <<< Array.partition f <<< unSortedArray
 
 -- | Functor-like convenience function, equivalent to unwrapping and applying the Array map.
 map' ∷ ∀ a b. (a → b) → SortedArray a → Array b
@@ -229,35 +258,34 @@ mapWithIndex' f = Array.mapWithIndex f <<< unSortedArray
 
 -- | Sort an array and wrap it as a `SortedArray`.
 sort ∷ ∀ a. Ord a ⇒ Array a → SortedArray a
-sort array = mkSortedArray compare <<< Array.sort $ array
-
--- | Sort an array using the provided compare function and wrap it as a `SortedArray`.
-sortBy ∷ ∀ a. (a → a → Ordering) → Array a → SortedArray a
-sortBy cmp array = mkSortedArray cmp <<< Array.sortBy cmp $ array
-
-sortWith ∷ ∀ a b. Ord b ⇒ (a → b) → Array a → SortedArray a
-sortWith f array = mkSortedArray (\x y → compare (f x) (f y)) <<< Array.sortWith f $ array
+sort = mkSortedArray <<< Array.sort
 
 slice ∷ ∀ a. Int → Int → SortedArray a → SortedArray a
-slice start end (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.slice start end $ array
+slice start end = mkSortedArray <<< Array.slice start end <<< unSortedArray
 
 take ∷ ∀ a. Int → SortedArray a → SortedArray a
-take n (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.take n $ array
+take n = mkSortedArray <<< Array.take n <<< unSortedArray
+
+takeEnd ∷ ∀ a. Int → SortedArray a → SortedArray a
+takeEnd n = mkSortedArray <<< Array.takeEnd n <<< unSortedArray
 
 takeWhile ∷ ∀ a. (a → Boolean) → SortedArray a → SortedArray a
-takeWhile pred (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.takeWhile pred $ array
+takeWhile pred = mkSortedArray <<< Array.takeWhile pred <<< unSortedArray
 
 drop ∷ ∀ a. Int → SortedArray a → SortedArray a
-drop n (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.drop n $ array
+drop n = mkSortedArray <<< Array.drop n <<< unSortedArray
+
+dropEnd ∷ ∀ a. Int → SortedArray a → SortedArray a
+dropEnd n = mkSortedArray <<< Array.dropEnd n <<< unSortedArray
 
 dropWhile ∷ ∀ a. (a → Boolean) → SortedArray a → SortedArray a
-dropWhile pred (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.dropWhile pred $ array
+dropWhile pred = mkSortedArray <<< Array.dropWhile pred <<< unSortedArray
 
 span ∷ ∀ a. (a → Boolean) → SortedArray a → { init ∷ SortedArray a, rest ∷ SortedArray a }
-span pred (SortedArray {array, cmp}) = (\res → { init: mkSortedArray cmp res.init, rest: mkSortedArray cmp res.rest}) <<< Array.span pred $ array
+span pred = (\res → { init: mkSortedArray res.init, rest: mkSortedArray res.rest}) <<< Array.span pred <<< unSortedArray
 
 nub ∷ ∀ a. Eq a ⇒ SortedArray a → SortedArray a
-nub (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.nub $ array
+nub = mkSortedArray <<< Array.nub <<< unSortedArray 
 
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
-nubBy pred (SortedArray {array, cmp}) = mkSortedArray cmp <<< Array.nubBy pred $ array
+nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
