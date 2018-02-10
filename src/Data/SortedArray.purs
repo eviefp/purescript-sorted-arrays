@@ -13,6 +13,8 @@
 module Data.SortedArray
   ( SortedArray
   , unSortedArray
+  , fromFoldable
+  , toUnfoldable
   , singleton
   , range
   , (..)
@@ -58,8 +60,9 @@ import Control.Alt ((<|>))
 import Data.Array as Array
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Unfoldable (class Unfoldable)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Eq, class Ord, class Show, Ordering(EQ, GT, LT), compare, flip, id, map, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
+import Prelude (class Eq, class Ord, class Show, type (~>), Ordering(EQ, GT, LT), compare, flip, id, map, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 
 -- | You can create `SortedArray`s by using the `sort` functions. You can get the underlying
 -- | `Array` using `unSortedArray`.
@@ -80,13 +83,19 @@ derive newtype instance foldableSortedArray ∷ Foldable SortedArray
 instance showSortedArray ∷ Show a ⇒ Show (SortedArray a) where
   show = show <<< unSortedArray
 
+fromFoldable ∷ ∀ f a. Foldable f ⇒ Ord a ⇒ f a → SortedArray a
+fromFoldable = sort <<< Array.fromFoldable
+
+toUnfoldable ∷ ∀ f. Unfoldable f ⇒ SortedArray ~> f
+toUnfoldable = Array.toUnfoldable <<< unSortedArray
+
 -- | Creates a singleton array which is by definition sorted.
 singleton ∷ ∀ a. Ord a ⇒ a → SortedArray a
 singleton = mkSortedArray <<< Array.singleton
 
 -- | Creates an array containing a range of integers, including the bounds.
 range ∷ Int → Int → SortedArray Int
-range from = mkSortedArray <<< Array.range from
+range from to = mkSortedArray <<< Array.range (min from to) $ max from to
 
 -- | Infix synonym for `range`.
 infix 8 range as ..
@@ -289,3 +298,7 @@ nub = mkSortedArray <<< Array.nub <<< unSortedArray
 
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
+
+
+
+

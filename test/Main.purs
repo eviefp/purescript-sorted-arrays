@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Maybe (Maybe(..), fromJust, isNothing)
 import Partial.Unsafe (unsafePartial)
-import Prelude (Unit, const, discard, negate, show, ($), (-), (/=), (<), (<<<), (==))
+import Prelude (Unit, const, discard, negate, ($), (-), (/=), (<), (==))
 import Test.Assert (assert, ASSERT)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -17,13 +17,16 @@ main ∷ ∀ e. Eff (console ∷ CONSOLE, assert ∷ ASSERT | e) Unit
 main = do
   let emptyArray = mkSortedArray ([] ∷ Array Int)
   
+  -- fromFoldable
+  -- toUnfoldable
+  
   log "singleton should construct an array with a single value"
   assert $ singleton 1 == mkSortedArray [1]
   assert $ singleton "foo" == mkSortedArray ["foo"]
 
   log "range should create an inclusive array of integers for the specified start and end"
   assert $ (range 0 5) == mkSortedArray [0, 1, 2, 3, 4, 5]
-  assert $ (range 2 (-3)) == mkSortedArray [2, 1, 0, -1, -2, -3]
+  assert $ (range 2 (-3)) == mkSortedArray [-3, -2, -1, 0, 1, 2]
 
   log "replicate should produce an array containg an item a specified number of times"
   assert $ replicate 3 true == mkSortedArray [true, true, true]
