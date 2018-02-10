@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Maybe (Maybe(..), fromJust, isNothing)
 import Partial.Unsafe (unsafePartial)
-import Prelude (Unit, const, discard, negate, ($), (-), (/=), (<), (==))
+import Prelude (Unit, const, discard, negate, show, ($), (-), (/=), (<), (==))
 import Test.Assert (assert, ASSERT)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -17,8 +17,9 @@ main ∷ ∀ e. Eff (console ∷ CONSOLE, assert ∷ ASSERT | e) Unit
 main = do
   let emptyArray = mkSortedArray ([] ∷ Array Int)
   
-  -- fromFoldable
-  -- toUnfoldable
+  log "fromFoldable"
+  assert $ fromFoldable (Just 1) == mkSortedArray [1]
+  assert $ fromFoldable Nothing  == emptyArray
   
   log "singleton should construct an array with a single value"
   assert $ singleton 1 == mkSortedArray [1]
@@ -33,8 +34,6 @@ main = do
   assert $ replicate 1 "foo" == mkSortedArray ["foo"]
   assert $ replicate 0 "foo" == (unsafeCoerce [])
   assert $ replicate (-1) "foo" == (unsafeCoerce [])
-  -- some
-  -- many
 
   log "null should return false for non-empty arrays"
   assert $ null (mkSortedArray [1]) == false
@@ -57,6 +56,9 @@ main = do
   assert $ emptyArray `snoc` 1 == [1]
 
   log "insert should add an item at the appropriate place in a sorted array"
+  assert $ insert 1 emptyArray == mkSortedArray [1]
+  assert $ insert 1 (mkSortedArray [2]) == mkSortedArray [1, 2]
+  assert $ insert 1 (mkSortedArray [0]) == mkSortedArray [0, 1]
   assert $ insert 1.5 (mkSortedArray [1.0, 2.0, 3.0]) == mkSortedArray [1.0, 1.5, 2.0, 3.0]
   assert $ insert 4 (mkSortedArray [1, 2, 3]) == mkSortedArray [1, 2, 3, 4]
   assert $ insert 0 (mkSortedArray [1, 2, 3]) == mkSortedArray [0, 1, 2, 3]
@@ -207,3 +209,29 @@ main = do
   assert $ delete 1 (mkSortedArray [1, 2, 3]) == mkSortedArray [2, 3]
   assert $ delete 2 (mkSortedArray [1, 2, 3]) == mkSortedArray [1, 3]
   
+  log $ "partition should split according to predicate"
+  let eq1 = partition (_ == 1) (mkSortedArray [1, 2, 3])
+  assert $ eq1.yes == mkSortedArray [1]
+  assert $ eq1.no == mkSortedArray [2, 3]
+
+  log $ "partition (const true) should result in all of the array going to yes"
+  let all = partition (const true) (mkSortedArray [1, 2, 3])
+  assert $ all.yes == mkSortedArray [1, 2, 3]
+  assert $ all.no == mkSortedArray []
+
+  log $ "partition (const false) should result in all of the array going to no"
+  let none = partition (const false) (mkSortedArray [1, 2, 3])
+  assert $ none.yes == mkSortedArray []
+  assert $ none.no == mkSortedArray [1, 2, 3]
+
+  -- map
+  log $ "map basic test"
+  assert $ map show (mkSortedArray [1, 2, 3]) == ["1", "2", "3"]
+
+  -- mapWithIndex
+  log $ "mapWithIndex basic test"
+  assert $ mapWithIndex (const) (mkSortedArray [1, 2, 3]) == [0, 1, 2]
+  
+  -- slice
+  log $ "slice basic test"
+  assert $ slice 1 2 (mkSortedArray [1, 2, 3]) == mkSortedArray [2]

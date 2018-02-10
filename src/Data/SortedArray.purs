@@ -1,5 +1,5 @@
 -- | `SortedArray` is a newtype wrapper on top of `Array`. You can construct a `SortedArray` by
--- | using the sort functions provided in this module. The main benefit is being able to
+-- | using the sort function provided in this module. The main benefit is being able to
 -- | binary search through the array through `elemIndex`, `elemLastIndex`, `findIndex`,
 -- | `findLastIndex` and `filter`.
 -- |
@@ -8,13 +8,14 @@
 -- | must return an `Array` and are convenience functions for unwrapping and then applying the
 -- | operation on the underlying `Array`.
 -- |
--- | Please note that there is no `Functor` instance but there is a `map'` function that returns
+-- | `SortedArray` has the following instances: `Eq`, `Foldable` and `Show`.
+-- |
+-- | Please note that there is no `Functor` instance but there is a `map` function that returns
 -- | an `Array b`.
 module Data.SortedArray
   ( SortedArray
   , unSortedArray
   , fromFoldable
-  , toUnfoldable
   , singleton
   , range
   , (..)
@@ -41,8 +42,8 @@ module Data.SortedArray
   , deleteAt
   , filter
   , partition
-  , map'
-  , mapWithIndex'
+  , map
+  , mapWithIndex
   , sort
   , slice
   , take
@@ -60,9 +61,10 @@ import Control.Alt ((<|>))
 import Data.Array as Array
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromJust, maybe)
-import Data.Unfoldable (class Unfoldable)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Eq, class Ord, class Show, type (~>), Ordering(EQ, GT, LT), compare, flip, id, map, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
+import Prelude as P
+import Prelude (class Eq, class Ord, class Show, Ordering(EQ, GT, LT), compare, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
+
 
 -- | You can create `SortedArray`s by using the `sort` functions. You can get the underlying
 -- | `Array` using `unSortedArray`.
@@ -85,9 +87,6 @@ instance showSortedArray ∷ Show a ⇒ Show (SortedArray a) where
 
 fromFoldable ∷ ∀ f a. Foldable f ⇒ Ord a ⇒ f a → SortedArray a
 fromFoldable = sort <<< Array.fromFoldable
-
-toUnfoldable ∷ ∀ f. Unfoldable f ⇒ SortedArray ~> f
-toUnfoldable = Array.toUnfoldable <<< unSortedArray
 
 -- | Creates a singleton array which is by definition sorted.
 singleton ∷ ∀ a. Ord a ⇒ a → SortedArray a
@@ -163,19 +162,19 @@ last = Array.last <<< unSortedArray
 
 -- | Gets the rest of the array (except the first item), or `Nothing` if the array is empty.
 tail ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
-tail = map mkSortedArray <<< Array.tail <<< unSortedArray
+tail = P.map mkSortedArray <<< Array.tail <<< unSortedArray
 
 -- | Gets all the items in the array except the last item, or `Nothing` if the array is empty.
 init ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
-init = map mkSortedArray <<< Array.init <<< unSortedArray
+init = P.map mkSortedArray <<< Array.init <<< unSortedArray
 
 -- | Deconstructs the array in a `head` and `tail`, or returns `Nothing` if the array is empty.
 uncons ∷ ∀ a. SortedArray a → Maybe { head ∷ a, tail ∷ SortedArray a }
-uncons = map (\m -> { head: m.head, tail: mkSortedArray m.tail }) <<< Array.uncons <<< unSortedArray
+uncons = P.map (\m -> { head: m.head, tail: mkSortedArray m.tail }) <<< Array.uncons <<< unSortedArray
 
 -- | Flipped version of `uncons`.
 unsnoc ∷ ∀ a. SortedArray a → Maybe { init ∷ SortedArray a, last ∷ a }
-unsnoc = map (\m -> { init: mkSortedArray m.init, last: m.last }) <<< Array.unsnoc <<< unSortedArray
+unsnoc = P.map (\m -> { init: mkSortedArray m.init, last: m.last }) <<< Array.unsnoc <<< unSortedArray
 
 -- | Gets the item at the specified index, or `Nothing` if it is out of bounds.
 index ∷ ∀ a. SortedArray a → Int → Maybe a
@@ -231,12 +230,12 @@ findIndex' dir a sa = go 0 <<< length $ sa
         EQ → goDir dir (dir idx)
         _  → Just idx
 
--- | Deletes item at index.
-deleteAt ∷ ∀ a. Int → SortedArray a → Maybe (SortedArray a)
-deleteAt idx = map mkSortedArray <<< Array.deleteAt idx <<< unSortedArray
-
 delete ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
 delete a xs = unsafePartial $ fromJust $ (findIndex a xs >>= (flip deleteAt) xs) <|> Just xs
+
+-- | Deletes item at index.
+deleteAt ∷ ∀ a. Int → SortedArray a → Maybe (SortedArray a)
+deleteAt idx = P.map mkSortedArray <<< Array.deleteAt idx <<< unSortedArray
 
 -- | Returns all items for which the provided compare function tests equal ('EQ').
 -- | Uses binary search.
@@ -258,12 +257,12 @@ partition ∷ ∀ a. (a → Boolean) → SortedArray a → { yes ∷ SortedArray
 partition f = (\res → { yes: mkSortedArray res.yes, no: mkSortedArray res.no }) <<< Array.partition f <<< unSortedArray
 
 -- | Functor-like convenience function, equivalent to unwrapping and applying the Array map.
-map' ∷ ∀ a b. (a → b) → SortedArray a → Array b
-map' f = map f <<< unSortedArray
+map ∷ ∀ a b. (a → b) → SortedArray a → Array b
+map f = P.map f <<< unSortedArray
 
 -- | Apply function to each element, supplying a zero-based index. Result is a regular `Array`.
-mapWithIndex' ∷ ∀ a b. (Int → a → b) → SortedArray a → Array b
-mapWithIndex' f = Array.mapWithIndex f <<< unSortedArray
+mapWithIndex ∷ ∀ a b. (Int → a → b) → SortedArray a → Array b
+mapWithIndex f = Array.mapWithIndex f <<< unSortedArray
 
 -- | Sort an array and wrap it as a `SortedArray`.
 sort ∷ ∀ a. Ord a ⇒ Array a → SortedArray a
@@ -298,7 +297,3 @@ nub = mkSortedArray <<< Array.nub <<< unSortedArray
 
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
-
-
-
-
