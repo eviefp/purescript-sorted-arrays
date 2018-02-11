@@ -1,5 +1,10 @@
 {
   "name": "purescript-sorted-arrays",
+  "homepage": "https://github.com/vladciobanu/purescript-sorted-arrays.git",
+  "authors": [
+    "Vladimir Ciobanu <ps@cvlad.info>"
+  ],
+  "description": "Sorted arrays",
   "ignore": [
     "**/.*",
     "node_modules",
