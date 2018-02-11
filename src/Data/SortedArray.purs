@@ -72,7 +72,7 @@ newtype SortedArray a = SortedArray (Array a)
 
 data Direction = Forward | Backward
 
--- | Unwraps the `Array`.
+-- | Unwraps to the inner `Array`.
 unSortedArray ∷ ∀ a. SortedArray a → Array a
 unSortedArray (SortedArray a) = a
 
@@ -85,6 +85,7 @@ derive newtype instance foldableSortedArray ∷ Foldable SortedArray
 instance showSortedArray ∷ Show a ⇒ Show (SortedArray a) where
   show = show <<< unSortedArray
 
+-- | Unfold and sort a `Foldable` structure to a `SortedArray`.
 fromFoldable ∷ ∀ f a. Foldable f ⇒ Ord a ⇒ f a → SortedArray a
 fromFoldable = sort <<< Array.fromFoldable
 
@@ -99,8 +100,8 @@ range from to = mkSortedArray <<< Array.range (min from to) $ max from to
 -- | Infix synonym for `range`.
 infix 8 range as ..
 
--- |
-replicate ∷ ∀ a. Ord a ⇒ Int → a → SortedArray a
+-- | Create a `SortedArray` with `n` copies of a value.
+replicate ∷ ∀ a. Int → a → SortedArray a
 replicate n = mkSortedArray <<< Array.replicate n
 
 -- | Tests whether the array is empty.
@@ -119,13 +120,13 @@ cons a = Array.cons a <<< unSortedArray
 -- | Infix synonym for `cons`.
 infix 8 cons as :
 
--- | Flipped cons.
+-- | Flipped version of `cons`.
 snoc ∷ ∀ a. SortedArray a → a → Array a
 snoc = flip cons
 
 -- | Insert an item in the sorted array. The array remains sorted. The item goes in the first
 -- | position it can (so if they are duplicates, it will be the first item in that particular
--- | EQ group).
+-- | EQ _group_).
 insert ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
 insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (maybe 0 id <<< go 0 $ length sa) a <<< unSortedArray $ sa
   where
@@ -160,7 +161,7 @@ head = Array.head <<< unSortedArray
 last ∷ ∀ a. SortedArray a → Maybe a
 last = Array.last <<< unSortedArray
 
--- | Gets the rest of the array (except the first item), or `Nothing` if the array is empty.
+-- | Gets the rest of the array (all except the first item), or `Nothing` if the array is empty.
 tail ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
 tail = P.map mkSortedArray <<< Array.tail <<< unSortedArray
 
@@ -168,7 +169,7 @@ tail = P.map mkSortedArray <<< Array.tail <<< unSortedArray
 init ∷ ∀ a. SortedArray a → Maybe (SortedArray a)
 init = P.map mkSortedArray <<< Array.init <<< unSortedArray
 
--- | Deconstructs the array in a `head` and `tail`, or returns `Nothing` if the array is empty.
+-- | Deconstructs the array to a `head` and `tail`, or returns `Nothing` if the array is empty.
 uncons ∷ ∀ a. SortedArray a → Maybe { head ∷ a, tail ∷ SortedArray a }
 uncons = P.map (\m -> { head: m.head, tail: mkSortedArray m.tail }) <<< Array.uncons <<< unSortedArray
 
@@ -268,32 +269,43 @@ mapWithIndex f = Array.mapWithIndex f <<< unSortedArray
 sort ∷ ∀ a. Ord a ⇒ Array a → SortedArray a
 sort = mkSortedArray <<< Array.sort
 
+-- | Extracts a subarray by a start and end index.
 slice ∷ ∀ a. Int → Int → SortedArray a → SortedArray a
 slice start end = mkSortedArray <<< Array.slice start end <<< unSortedArray
 
+-- | Creates a new array by taking the first `n` elements of the array.
 take ∷ ∀ a. Int → SortedArray a → SortedArray a
 take n = mkSortedArray <<< Array.take n <<< unSortedArray
 
+-- | Creates a new array by taking the last `n` elements of the array.
 takeEnd ∷ ∀ a. Int → SortedArray a → SortedArray a
 takeEnd n = mkSortedArray <<< Array.takeEnd n <<< unSortedArray
 
+-- | Creates a new array by taking the longest subarray of items that satisfy the specified predicate.
 takeWhile ∷ ∀ a. (a → Boolean) → SortedArray a → SortedArray a
 takeWhile pred = mkSortedArray <<< Array.takeWhile pred <<< unSortedArray
 
+-- | Creates a new array by skipping the first `n` elements of the array.
 drop ∷ ∀ a. Int → SortedArray a → SortedArray a
 drop n = mkSortedArray <<< Array.drop n <<< unSortedArray
 
+-- | Creates a new array by skipping the last `n` elements of the array.
 dropEnd ∷ ∀ a. Int → SortedArray a → SortedArray a
 dropEnd n = mkSortedArray <<< Array.dropEnd n <<< unSortedArray
 
+-- | Creates a new array by skipping the longest subarray of items that satisfy the specified predicate.
 dropWhile ∷ ∀ a. (a → Boolean) → SortedArray a → SortedArray a
 dropWhile pred = mkSortedArray <<< Array.dropWhile pred <<< unSortedArray
 
+-- | Splits an array into the longest initial subarray of elements that satisfy the specified predicate and
+-- | the remaining elements.
 span ∷ ∀ a. (a → Boolean) → SortedArray a → { init ∷ SortedArray a, rest ∷ SortedArray a }
 span pred = (\res → { init: mkSortedArray res.init, rest: mkSortedArray res.rest}) <<< Array.span pred <<< unSortedArray
 
+-- | Creates a new array that contains no duplicates.
 nub ∷ ∀ a. Eq a ⇒ SortedArray a → SortedArray a
 nub = mkSortedArray <<< Array.nub <<< unSortedArray 
 
+-- | Creates a new array that contains no duplicates by using the specified equivalence relation.
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
