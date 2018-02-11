@@ -89,7 +89,7 @@ fromFoldable ∷ ∀ f a. Foldable f ⇒ Ord a ⇒ f a → SortedArray a
 fromFoldable = sort <<< Array.fromFoldable
 
 -- | Creates a singleton array which is by definition sorted.
-singleton ∷ ∀ a. Ord a ⇒ a → SortedArray a
+singleton ∷ ∀ a. a → SortedArray a
 singleton = mkSortedArray <<< Array.singleton
 
 -- | Creates an array containing a range of integers, including the bounds.

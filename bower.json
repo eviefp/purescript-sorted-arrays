@@ -1,5 +1,5 @@
 {
-  "name": "sorted-array",
+  "name": "purescript-sorted-arrays",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -9,7 +9,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vladciobanu/purescript-sorted-array.git"
+    "url": "https://github.com/vladciobanu/purescript-sorted-arrays.git"
   },
   "dependencies": {
     "purescript-prelude": "^3.1.1",
