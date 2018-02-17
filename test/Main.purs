@@ -5,8 +5,9 @@ import Data.SortedArray
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Maybe (Maybe(..), fromJust, isNothing)
+import Data.Monoid (mempty)
 import Partial.Unsafe (unsafePartial)
-import Prelude (Unit, const, discard, negate, show, ($), (-), (/=), (<), (==))
+import Prelude (Unit, const, discard, negate, show, ($), (-), (/=), (<), (<>), (==))
 import Test.Assert (assert, ASSERT)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -15,11 +16,22 @@ mkSortedArray = unsafeCoerce
 
 main ∷ ∀ e. Eff (console ∷ CONSOLE, assert ∷ ASSERT | e) Unit
 main = do
-  let emptyArray = mkSortedArray ([] ∷ Array Int)
+  let emptyArray = mempty ∷ SortedArray Int
+
+  log "monoid"
+  assert $ mkSortedArray [1] <> mempty == mkSortedArray [1] 
+  assert $ mempty <> mkSortedArray [1, 2, 3] == mkSortedArray [1, 2, 3]
+
+  assert $ mkSortedArray [1] <> mkSortedArray [2] == mkSortedArray [1, 2]
+  assert $ mkSortedArray [2] <> mkSortedArray [1] == mkSortedArray [1, 2]
+
+  assert $ mkSortedArray [1, 3, 5] <> mkSortedArray [2, 4, 6] == mkSortedArray [1, 2, 3, 4, 5, 6]
+  assert $ mkSortedArray [1, 5, 6] <> mkSortedArray [2] == mkSortedArray [1, 2, 5, 6]
+  assert $ mkSortedArray [2] <> mkSortedArray [1, 5, 6] == mkSortedArray [1, 2, 5, 6]
   
   log "fromFoldable"
   assert $ fromFoldable (Just 1) == mkSortedArray [1]
-  assert $ fromFoldable Nothing  == emptyArray
+  assert $ fromFoldable Nothing  == (mempty ∷ SortedArray Int)
   
   log "singleton should construct an array with a single value"
   assert $ singleton 1 == mkSortedArray [1]
@@ -49,14 +61,14 @@ main = do
 
   log "cons should add an item to the start of an array"
   assert $ 4 : (mkSortedArray [1, 2, 3]) == [4, 1, 2, 3]
-  assert $ 1 : emptyArray == [1]
+  assert $ 1 : mempty == [1]
 
   log "snoc should add an item to the end of an array"
   assert $ (mkSortedArray [1, 2, 3]) `snoc` 4 == [4, 1, 2, 3]
-  assert $ emptyArray `snoc` 1 == [1]
+  assert $ mempty `snoc` 1 == [1]
 
   log "insert should add an item at the appropriate place in a sorted array"
-  assert $ insert 1 emptyArray == mkSortedArray [1]
+  assert $ insert 1 mempty == mkSortedArray [1]
   assert $ insert 1 (mkSortedArray [2]) == mkSortedArray [1, 2]
   assert $ insert 1 (mkSortedArray [0]) == mkSortedArray [0, 1]
   assert $ insert 1.5 (mkSortedArray [1.0, 2.0, 3.0]) == mkSortedArray [1.0, 1.5, 2.0, 3.0]
@@ -93,7 +105,7 @@ main = do
   log "uncons should split an array into a head and tail record when there is at least one item"
   let u1 = unsafePartial $ fromJust $ uncons $ mkSortedArray [1]
   assert $ u1.head == 1
-  assert $ u1.tail == emptyArray
+  assert $ u1.tail == mempty
   let u2 = unsafePartial $ fromJust $ uncons $ mkSortedArray [1, 2, 3]
   assert $ u2.head == 1
   assert $ u2.tail == (mkSortedArray [2, 3])
@@ -103,7 +115,7 @@ main = do
 
   log "unsnoc should split an array into an init and last record when there is at least one item"
   let u3 = unsafePartial $ fromJust $ unsnoc $ mkSortedArray [1]
-  assert $ u3.init == emptyArray
+  assert $ u3.init == mempty
   assert $ u3.last == 1
   let u4 = unsafePartial $ fromJust $ unsnoc $ mkSortedArray [1, 2, 3]
   assert $ u4.init == (mkSortedArray [1, 2])
@@ -150,30 +162,30 @@ main = do
   log "takeWhile should keep all values that match a predicate from the front of an array"
   assert $ (takeWhile (_ /= 2) (mkSortedArray [1, 2, 3])) == mkSortedArray [1]
   assert $ (takeWhile (_ /= 3) (mkSortedArray [1, 2, 3])) == mkSortedArray [1, 2]
-  assert $ (takeWhile (_ /= 1) emptyArray) == emptyArray
+  assert $ (takeWhile (_ /= 1) mempty) == mempty
 
   log "take should keep the specified number of items from the end of an array, discarding the rest"
   assert $ (takeEnd 1 (mkSortedArray [1, 2, 3])) == mkSortedArray [3]
   assert $ (takeEnd 2 (mkSortedArray [1, 2, 3])) == mkSortedArray [2, 3]
-  assert $ (takeEnd 1 emptyArray) == emptyArray
+  assert $ (takeEnd 1 emptyArray) == mempty
 
   log "drop should remove the specified number of items from the front of an array"
   assert $ (drop 1 (mkSortedArray [1, 2, 3])) == mkSortedArray [2, 3]
   assert $ (drop 2 (mkSortedArray [1, 2, 3])) == mkSortedArray [3]
-  assert $ (drop 1 emptyArray) == emptyArray
+  assert $ (drop 1 emptyArray) == mempty
 
   log "dropWhile should remove all values that match a predicate from the front of an array"
   assert $ (dropWhile (_ /= 1) (mkSortedArray [1, 2, 3])) == mkSortedArray [1, 2, 3]
   assert $ (dropWhile (_ /= 2) (mkSortedArray [1, 2, 3])) == mkSortedArray [2, 3]
-  assert $ (dropWhile (_ /= 1) emptyArray) == emptyArray
+  assert $ (dropWhile (_ /= 1) mempty) == mempty
 
   log "drop should remove the specified number of items from the end of an array"
   assert $ (dropEnd 1 (mkSortedArray [1, 2, 3])) == mkSortedArray [1, 2]
   assert $ (dropEnd 2 (mkSortedArray [1, 2, 3])) == mkSortedArray [1]
-  assert $ (dropEnd 1 emptyArray) == emptyArray
+  assert $ (dropEnd 1 emptyArray) == mempty
 
   log "take and drop should treat negative arguments as zero"
-  assert $ (take (-2) (mkSortedArray [1, 2, 3])) == emptyArray
+  assert $ (take (-2) (mkSortedArray [1, 2, 3])) == mempty
   assert $ (drop (-2) (mkSortedArray [1, 2, 3])) == mkSortedArray [1, 2, 3]
 
   log "span should split an array in two based on a predicate"
@@ -186,10 +198,10 @@ main = do
   testSpan { p: (_ < 4), input: oneToSeven, init_: mkSortedArray [1, 2, 3], rest_: mkSortedArray [4, 5, 6, 7] }
 
   log "span with all elements satisfying the predicate"
-  testSpan { p: const true, input: oneToSeven, init_: oneToSeven, rest_: emptyArray }
+  testSpan { p: const true, input: oneToSeven, init_: oneToSeven, rest_: mempty }
 
   log "span with no elements satisfying the predicate"
-  testSpan { p: const false, input: oneToSeven, init_: emptyArray, rest_: oneToSeven }
+  testSpan { p: const false, input: oneToSeven, init_: mempty, rest_: oneToSeven }
 
   log "span with large inputs: 10000"
   let testBigSpan n =

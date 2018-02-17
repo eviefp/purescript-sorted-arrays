@@ -8,7 +8,7 @@
 -- | must return an `Array` and are convenience functions for unwrapping and then applying the
 -- | operation on the underlying `Array`.
 -- |
--- | `SortedArray` has the following instances: `Eq`, `Foldable` and `Show`.
+-- | `SortedArray` has the following instances: `Eq`, `Foldable`, `Show`, `Semigroup` and `Monoid`.
 -- |
 -- | Please note that there is no `Functor` instance but there is a `map` function that returns
 -- | an `Array b`.
@@ -61,14 +61,27 @@ import Control.Alt ((<|>))
 import Data.Array as Array
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Monoid (class Monoid)
+import Data.Ord (lessThanOrEq)
 import Partial.Unsafe (unsafePartial)
+import Prelude (class Eq, class Ord, class Semigroup, class Show, Ordering(EQ, GT, LT), compare, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 import Prelude as P
-import Prelude (class Eq, class Ord, class Show, Ordering(EQ, GT, LT), compare, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 
 
 -- | You can create `SortedArray`s by using the `sort` functions. You can get the underlying
 -- | `Array` using `unSortedArray`.
 newtype SortedArray a = SortedArray (Array a)
+
+-- | Comparison is done using `<=`, so the operation is left-biased with regards to EQ.
+-- | This also means that the operation is commutative up to EQ.
+instance sortedArraySemigroup ∷ Ord a ⇒ Semigroup (SortedArray a) where
+  append = sortedArrayConcatImpl lessThanOrEq
+
+instance sortedArrayMonoid ∷ Ord a ⇒ Monoid (SortedArray a) where
+  mempty = mkSortedArray []
+
+
+foreign import sortedArrayConcatImpl ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a → SortedArray a
 
 data Direction = Forward | Backward
 
@@ -309,3 +322,5 @@ nub = mkSortedArray <<< Array.nub <<< unSortedArray
 -- | Creates a new array that contains no duplicates by using the specified equivalence relation.
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
+
+
