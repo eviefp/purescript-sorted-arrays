@@ -59,12 +59,13 @@ module Data.SortedArray
 
 import Control.Alt ((<|>))
 import Data.Array as Array
+import Data.Eq (class Eq1)
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromJust, maybe)
 import Data.Monoid (class Monoid)
-import Data.Ord (lessThanOrEq)
+import Data.Ord (class Ord1, lessThanOrEq)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Eq, class Ord, class Semigroup, class Show, Ordering(EQ, GT, LT), compare, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
+import Prelude (class Eq, class Ord, class Semigroup, class Show, Ordering(EQ, GT, LT), compare, eq, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 import Prelude as P
 
 
@@ -90,9 +91,18 @@ unSortedArray ∷ ∀ a. SortedArray a → Array a
 unSortedArray (SortedArray a) = a
 
 mkSortedArray ∷ ∀ a. Array a → SortedArray a
-mkSortedArray = SortedArray 
+mkSortedArray = SortedArray
 
 derive newtype instance eqSortedArray ∷ Eq a ⇒ Eq (SortedArray a)
+
+instance sortedArrayEq1 ∷ Eq1 SortedArray where
+  eq1 = eq
+
+derive instance sortedArrayOrd ∷ Ord a ⇒ Ord (SortedArray a)
+
+instance sortedArrayOrd1 ∷ Ord1 SortedArray where
+  compare1 = compare
+
 derive newtype instance foldableSortedArray ∷ Foldable SortedArray
 
 instance showSortedArray ∷ Show a ⇒ Show (SortedArray a) where
@@ -143,7 +153,7 @@ snoc = flip cons
 insert ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
 insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (maybe 0 id <<< go 0 $ length sa) a <<< unSortedArray $ sa
   where
-  f ∷ a → Ordering 
+  f ∷ a → Ordering
   f = compare a
 
   go ∷ Int → Int → Maybe Int
@@ -157,7 +167,7 @@ insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (may
             EQ → goDir (_ - 1) mid
             LT → go low mid
             GT → go (mid + 1) high
-  
+
   goDir ∷ (Int → Int) → Int → Maybe Int
   goDir dir idx =
     case f <$> index sa (dir idx) of
@@ -197,11 +207,11 @@ index = Array.index <<< unSortedArray
 -- | Infix synonym for `index`.
 infix 8 index as !!
 
--- | Finds the first index of the first occurrence of the provided item. Uses binary search. 
+-- | Finds the first index of the first occurrence of the provided item. Uses binary search.
 elemIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
 elemIndex a = findIndex' Forward a
 
--- | Finds the last index of the first occurrence of the provided item. Uses binary search. 
+-- | Finds the last index of the first occurrence of the provided item. Uses binary search.
 elemLastIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
 elemLastIndex a = findIndex' Backward a
 
@@ -212,14 +222,14 @@ findIndex a = findIndex' Forward a
 
 -- | Finds the last index for which the provided compare function tests equal (`EQ`).
 -- | Uses binary search.
-findLastIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int 
+findLastIndex ∷ ∀ a. Ord a ⇒ a → SortedArray a → Maybe Int
 findLastIndex a = findIndex' Backward a
 
 findIndex' ∷ ∀ a. Ord a ⇒ Direction → a → SortedArray a → Maybe Int
 findIndex' dir a sa = go 0 <<< length $ sa
   where
 
-  f ∷ a → Ordering 
+  f ∷ a → Ordering
   f = compare a
 
   go ∷ Int → Int → Maybe Int
@@ -235,7 +245,7 @@ findIndex' dir a sa = go 0 <<< length $ sa
               Backward → goDir (_ + 1) mid
             LT → go low mid
             GT → go (mid + 1) high
-  
+
   goDir ∷ (Int → Int) → Int → Maybe Int
   goDir dir idx =
     case f <$> index sa (dir idx) of
@@ -256,7 +266,7 @@ deleteAt idx = P.map mkSortedArray <<< Array.deleteAt idx <<< unSortedArray
 filter ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
 filter a sa = mkSortedArray <<< go (_ == a) <<< findIndex a $ sa
     where
-    go f' = case _ of 
+    go f' = case _ of
       Nothing → []
       Just i →
         case index sa i of
@@ -317,10 +327,8 @@ span pred = (\res → { init: mkSortedArray res.init, rest: mkSortedArray res.re
 
 -- | Creates a new array that contains no duplicates.
 nub ∷ ∀ a. Eq a ⇒ SortedArray a → SortedArray a
-nub = mkSortedArray <<< Array.nub <<< unSortedArray 
+nub = mkSortedArray <<< Array.nub <<< unSortedArray
 
 -- | Creates a new array that contains no duplicates by using the specified equivalence relation.
 nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
-
-

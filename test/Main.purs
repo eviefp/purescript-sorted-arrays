@@ -4,10 +4,11 @@ import Data.SortedArray
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Data.Eq (eq1)
 import Data.Maybe (Maybe(..), fromJust, isNothing)
 import Data.Monoid (mempty)
 import Partial.Unsafe (unsafePartial)
-import Prelude (Unit, const, discard, negate, show, ($), (-), (/=), (<), (<>), (==))
+import Prelude (Ordering(..), Unit, compare, const, discard, negate, show, ($), (-), (/=), (<), (<>), (==))
 import Test.Assert (assert, ASSERT)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -18,8 +19,21 @@ main ∷ ∀ e. Eff (console ∷ CONSOLE, assert ∷ ASSERT | e) Unit
 main = do
   let emptyArray = mempty ∷ SortedArray Int
 
+  log "eq instance"
+  assert $ emptyArray == emptyArray
+  assert $ mkSortedArray [1, 2, 3] == mkSortedArray [1, 2, 3]
+  assert $ mkSortedArray [1, 2, 3] /= emptyArray
+  assert $ eq1 (mkSortedArray [1, 2, 3]) (mkSortedArray [1, 2, 3])
+
+  log "ord instance"
+  assert $ compare emptyArray emptyArray == EQ
+  assert $ compare (mkSortedArray [1, 2]) (mkSortedArray [1, 2]) == EQ
+  assert $ compare (mkSortedArray [1, 2]) (mkSortedArray [1]) == GT
+  assert $ compare (mkSortedArray [1, 2]) (mkSortedArray [2]) == LT
+
+
   log "monoid"
-  assert $ mkSortedArray [1] <> mempty == mkSortedArray [1] 
+  assert $ mkSortedArray [1] <> mempty == mkSortedArray [1]
   assert $ mempty <> mkSortedArray [1, 2, 3] == mkSortedArray [1, 2, 3]
 
   assert $ mkSortedArray [1] <> mkSortedArray [2] == mkSortedArray [1, 2]
@@ -28,11 +42,11 @@ main = do
   assert $ mkSortedArray [1, 3, 5] <> mkSortedArray [2, 4, 6] == mkSortedArray [1, 2, 3, 4, 5, 6]
   assert $ mkSortedArray [1, 5, 6] <> mkSortedArray [2] == mkSortedArray [1, 2, 5, 6]
   assert $ mkSortedArray [2] <> mkSortedArray [1, 5, 6] == mkSortedArray [1, 2, 5, 6]
-  
+
   log "fromFoldable"
   assert $ fromFoldable (Just 1) == mkSortedArray [1]
   assert $ fromFoldable Nothing  == (mempty ∷ SortedArray Int)
-  
+
   log "singleton should construct an array with a single value"
   assert $ singleton 1 == mkSortedArray [1]
   assert $ singleton "foo" == mkSortedArray ["foo"]
@@ -220,7 +234,7 @@ main = do
   log "delete should remove the first matching item from an array"
   assert $ delete 1 (mkSortedArray [1, 2, 3]) == mkSortedArray [2, 3]
   assert $ delete 2 (mkSortedArray [1, 2, 3]) == mkSortedArray [1, 3]
-  
+
   log $ "partition should split according to predicate"
   let eq1 = partition (_ == 1) (mkSortedArray [1, 2, 3])
   assert $ eq1.yes == mkSortedArray [1]
@@ -243,7 +257,7 @@ main = do
   -- mapWithIndex
   log $ "mapWithIndex basic test"
   assert $ mapWithIndex (const) (mkSortedArray [1, 2, 3]) == [0, 1, 2]
-  
+
   -- slice
   log $ "slice basic test"
   assert $ slice 1 2 (mkSortedArray [1, 2, 3]) == mkSortedArray [2]
