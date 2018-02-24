@@ -8,7 +8,8 @@
 -- | must return an `Array` and are convenience functions for unwrapping and then applying the
 -- | operation on the underlying `Array`.
 -- |
--- | `SortedArray` has the following instances: `Eq`, `Foldable`, `Show`, `Semigroup` and `Monoid`.
+-- | `SortedArray` has the following instances: `Eq`, `Eq1`, `Ord`, `Ord1` `Foldable`, `Show`,
+-- |    `Semigroup` and `Monoid`.
 -- |
 -- | Please note that there is no `Functor` instance but there is a `map` function that returns
 -- | an `Array b`.
