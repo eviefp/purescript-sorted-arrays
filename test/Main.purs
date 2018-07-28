@@ -2,20 +2,20 @@ module Test.Main where
 
 import Data.SortedArray
 
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Effect (Effect)
+import Effect.Class.Console (log)
 import Data.Eq (eq1)
 import Data.Maybe (Maybe(..), fromJust, isNothing)
 import Data.Monoid (mempty)
 import Partial.Unsafe (unsafePartial)
 import Prelude (Ordering(..), Unit, compare, const, discard, negate, show, ($), (-), (/=), (<), (<>), (==))
-import Test.Assert (assert, ASSERT)
+import Test.Assert (assert)
 import Unsafe.Coerce (unsafeCoerce)
 
 mkSortedArray ∷ ∀ a. Array a → SortedArray a
 mkSortedArray = unsafeCoerce
 
-main ∷ ∀ e. Eff (console ∷ CONSOLE, assert ∷ ASSERT | e) Unit
+main ∷ ∀ e. Effect Unit
 main = do
   let emptyArray = mempty ∷ SortedArray Int
 

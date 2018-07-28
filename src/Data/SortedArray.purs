@@ -66,7 +66,7 @@ import Data.Maybe (Maybe(..), fromJust, maybe)
 import Data.Monoid (class Monoid)
 import Data.Ord (class Ord1, lessThanOrEq)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Eq, class Ord, class Semigroup, class Show, Ordering(EQ, GT, LT), compare, eq, flip, id, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
+import Prelude (class Eq, class Ord, class Semigroup, class Show, Ordering(EQ, GT, LT), compare, eq, flip, identity, max, min, otherwise, show, ($), (+), (-), (/), (<$>), (<<<), (==), (>>=))
 import Prelude as P
 
 
@@ -152,7 +152,7 @@ snoc = flip cons
 -- | position it can (so if they are duplicates, it will be the first item in that particular
 -- | EQ _group_).
 insert ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
-insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (maybe 0 id <<< go 0 $ length sa) a <<< unSortedArray $ sa
+insert a sa = mkSortedArray <<< unsafePartial $ fromJust <<< Array.insertAt (maybe 0 identity <<< go 0 $ length sa) a <<< unSortedArray $ sa
   where
   f ∷ a → Ordering
   f = compare a
@@ -248,11 +248,11 @@ findIndex' dir a sa = go 0 <<< length $ sa
             GT → go (mid + 1) high
 
   goDir ∷ (Int → Int) → Int → Maybe Int
-  goDir dir idx =
-    case f <$> index sa (dir idx) of
+  goDir dir' idx =
+    case f <$> index sa (dir' idx) of
       Nothing → Just idx
       Just eq → case eq of
-        EQ → goDir dir (dir idx)
+        EQ → goDir dir' (dir' idx)
         _  → Just idx
 
 delete ∷ ∀ a. Ord a ⇒ a → SortedArray a → SortedArray a
@@ -327,9 +327,9 @@ span ∷ ∀ a. (a → Boolean) → SortedArray a → { init ∷ SortedArray a, 
 span pred = (\res → { init: mkSortedArray res.init, rest: mkSortedArray res.rest}) <<< Array.span pred <<< unSortedArray
 
 -- | Creates a new array that contains no duplicates.
-nub ∷ ∀ a. Eq a ⇒ SortedArray a → SortedArray a
+nub ∷ ∀ a. Ord a ⇒ SortedArray a → SortedArray a
 nub = mkSortedArray <<< Array.nub <<< unSortedArray
 
 -- | Creates a new array that contains no duplicates by using the specified equivalence relation.
-nubBy ∷ ∀ a. (a → a → Boolean) → SortedArray a → SortedArray a
+nubBy ∷ ∀ a. (a → a → Ordering) → SortedArray a → SortedArray a
 nubBy pred = mkSortedArray <<< Array.nubBy pred <<< unSortedArray
