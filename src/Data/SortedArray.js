@@ -7,12 +7,9 @@ exports.sortedArrayConcatImpl = function(lessThan) {
             var i = 0, j = 0, res = [];
 
             while(i < xs.length && j < ys.length) {
-                console.log('comparing ' + xs[i] + ' to ' + ys[j]);
                 if(lessThan(xs[i])(ys[j])) {
-                    console.log('xs');
                     res.push(xs[i++]);
                 } else {
-                    console.log('ys');
                     res.push(ys[j++]);
                 }
             }
