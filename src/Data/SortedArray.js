@@ -1,4 +1,4 @@
-exports.sortedArrayConcatImpl = function(lessThan) {
+export function sortedArrayConcatImpl(lessThan) {
     return function(xs) {
         return function(ys) {
             if (xs.length === 0) return ys;
@@ -24,4 +24,4 @@ exports.sortedArrayConcatImpl = function(lessThan) {
             return res;
         };
     };
-};
+}
